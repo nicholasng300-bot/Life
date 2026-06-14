@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#ffffff" />
+  <title>Nick's Dashboard</title>
+  <link rel="manifest" href="manifest.json" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #F7F6F3; font-family: 'Segoe UI', Inter, sans-serif; color: #1A1A1A; }
+    input, select, button { font-family: inherit; }
+    input:focus { outline: 2px solid #1A1A1A; outline-offset: 1px; }
+    ::-webkit-scrollbar { width: 4px; height: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #ddd; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+
+    const SECTIONS = ["Today", "Career", "Finances", "Health"];
+    const STORAGE_KEY = "nick_dashboard_v1";
+
+    const defaultData = {
+      tasks: [
+        { id: 1, text: "Prepare for Teleport onboarding (16 Jun)", done: false, priority: "high" },
+        { id: 2, text: "Review ISO 9001 / 14001 / 45001 basics", done: false, priority: "high" },
+        { id: 3, text: "Pack bag for RedQ commute", done: false, priority: "medium" },
+      ],
+      career: [
+        { id: 1, text: "Teleport QA & ISO Compliance Intern", status: "active", note: "IMS audit readiness — Sept 2026 deadline" },
+        { id: 2, text: "NEBOSH IGC", status: "planned", note: "Next credential after diploma" },
+        { id: 3, text: "O&G roles (Velesto / PETRONAS Carigali)", status: "planned", note: "Mid-term target post-diploma" },
+      ],
+      finances: [
+        { id: 1, label: "Funko Pop resell", amount: 0, note: "Side hustle — track profit/loss per flip" },
+        { id: 2, label: "Skincare budget", amount: 75, note: "RM50–100/month target" },
+        { id: 3, label: "Commute cost (Puchong → Sepang)", amount: 0, note: "Track daily fuel spend" },
+      ],
+      health: [
+        { id: 1, habit: "Skincare routine", streak: 0, done: false },
+        { id: 2, habit: "Sleep before midnight", streak: 0, done: false },
+        { id: 3, habit: "Drink 2L water", streak: 0, done: false },
+      ],
+      lastReset: new Date().toDateString(),
+    };
+
+    function loadData() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return defaultData;
+        const saved = JSON.parse(raw);
+        if (saved.lastReset !== new Date().toDateString()) {
+          saved.tasks = saved.tasks.map(t => ({ ...t, done: false }));
+          saved.health = saved.health.map(h => ({
+            ...h,
+            streak: h.done ? h.streak : Math.max(0, h.streak - 1),
+            done: false,
+          }));
+          saved.lastReset = new Date().toDateString();
+        }
+        return saved;
+      } catch {
+        return defaultData;
+      }
+    }
+
+    function saveData(data) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    }
+
+    function Dashboard() {
+      const [active, setActive] = useState("Today");
+      const [data, setData] = useState(loadData);
+      const [newTask, setNewTask] = useState("");
+      const [newTaskPriority, setNewTaskPriority] = useState("medium");
+
+      useEffect(() => { saveData(data); }, [data]);
+
+      const today = new Date().toLocaleDateString("en-MY", {
+        weekday: "long", day: "numeric", month: "long", year: "numeric"
+      });
+
+      const priorityColor = p => ({ high: "#E05A5A", medium: "#E09A2A", low: "#6BAF92" }[p] || "#aaa");
+      const statusColor = s => ({ active: "#6BAF92", planned: "#7BA7C9", done: "#aaa" }[s] || "#aaa");
+
+      const toggleTask = id => setData(d => ({ ...d, tasks: d.tasks.map(t => t.id === id ? { ...t, done: !t.done } : t) }));
+      const removeTask = id => setData(d => ({ ...d, tasks: d.tasks.filter(t => t.id !== id) }));
+      const addTask = () => {
+        if (!newTask.trim()) return;
+        setData(d => ({ ...d, tasks: [...d.tasks, { id: Date.now(), text: newTask.trim(), done: false, priority: newTaskPriority }] }));
+        setNewTask("");
+      };
+      const toggleHabit = id => setData(d => ({
+        ...d,
+        health: d.health.map(h => h.id === id
+          ? { ...h, done: !h.done, streak: !h.done ? h.streak + 1 : Math.max(0, h.streak - 1) }
+          : h)
+      }));
+      const updateFinanceAmount = (id, val) => setData(d => ({
+        ...d, finances: d.finances.map(f => f.id === id ? { ...f, amount: parseFloat(val) || 0 } : f)
+      }));
+
+      return (
+        <div style={{ minHeight: "100vh", background: "#F7F6F3" }}>
+          {/* Header */}
+          <div style={{ padding: "1.75rem 1.25rem 1rem", borderBottom: "1px solid #E4E2DC", background: "#fff" }}>
+            <div style={{ maxWidth: 640, margin: "0 auto" }}>
+              <div style={{ fontSize: 11, letterSpacing: "0.12em", color: "#888", textTransform: "uppercase", marginBottom: 4 }}>{today}</div>
+              <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0, letterSpacing: "-0.01em" }}>Hey Nick 👋</h1>
+              <p style={{ margin: "4px 0 0", fontSize: 13, color: "#666" }}>Teleport QA & ISO Compliance Intern · Puchong</p>
+            </div>
+          </div>
+
+          {/* Nav */}
+          <div style={{ display: "flex", background: "#fff", borderBottom: "1px solid #E4E2DC", overflowX: "auto" }}>
+            <div style={{ maxWidth: 640, margin: "0 auto", display: "flex", width: "100%" }}>
+              {SECTIONS.map(s => (
+                <button key={s} onClick={() => setActive(s)} style={{
+                  padding: "0.75rem 1.25rem", border: "none",
+                  borderBottom: active === s ? "2px solid #1A1A1A" : "2px solid transparent",
+                  background: "transparent", fontWeight: active === s ? 600 : 400,
+                  fontSize: 13, color: active === s ? "#1A1A1A" : "#888",
+                  cursor: "pointer", whiteSpace: "nowrap",
+                }}>{s}</button>
+              ))}
+            </div>
+          </div>
+
+          {/* Content */}
+          <div style={{ maxWidth: 640, margin: "0 auto", padding: "1.5rem 1rem 4rem" }}>
+
+            {active === "Today" && (
+              <div>
+                <div style={{ fontSize: 11, color: "#888", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 12 }}>
+                  Tasks · {data.tasks.filter(t => t.done).length}/{data.tasks.length} done
+                </div>
+                {data.tasks.map(t => (
+                  <div key={t.id} style={{
+                    display: "flex", alignItems: "center", gap: 10,
+                    padding: "10px 12px", background: "#fff", borderRadius: 8,
+                    marginBottom: 6, border: "1px solid #E4E2DC", opacity: t.done ? 0.5 : 1,
+                  }}>
+                    <div style={{ width: 10, height: 10, borderRadius: "50%", background: priorityColor(t.priority), flexShrink: 0 }} />
+                    <span onClick={() => toggleTask(t.id)} style={{
+                      flex: 1, fontSize: 14, cursor: "pointer",
+                      textDecoration: t.done ? "line-through" : "none",
+                    }}>{t.text}</span>
+                    <button onClick={() => removeTask(t.id)} style={{
+                      background: "none", border: "none", color: "#ccc", cursor: "pointer", fontSize: 16, padding: 0
+                    }}>×</button>
+                  </div>
+                ))}
+
+                <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+                  <input value={newTask} onChange={e => setNewTask(e.target.value)}
+                    onKeyDown={e => e.key === "Enter" && addTask()}
+                    placeholder="Add a task…"
+                    style={{ flex: 1, padding: "9px 12px", border: "1px solid #E4E2DC", borderRadius: 8, fontSize: 14, background: "#fff" }}
+                  />
+                  <select value={newTaskPriority} onChange={e => setNewTaskPriority(e.target.value)} style={{
+                    padding: "9px 8px", border: "1px solid #E4E2DC", borderRadius: 8, fontSize: 13, background: "#fff", cursor: "pointer"
+                  }}>
+                    <option value="high">High</option>
+                    <option value="medium">Med</option>
+                    <option value="low">Low</option>
+                  </select>
+                  <button onClick={addTask} style={{
+                    padding: "9px 16px", background: "#1A1A1A", color: "#fff",
+                    border: "none", borderRadius: 8, fontSize: 14, cursor: "pointer", fontWeight: 600
+                  }}>Add</button>
+                </div>
+
+                <div style={{ marginTop: 24 }}>
+                  <div style={{ fontSize: 11, color: "#888", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 10 }}>Today's Habits</div>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    {data.health.map(h => (
+                      <button key={h.id} onClick={() => toggleHabit(h.id)} style={{
+                        padding: "8px 14px", borderRadius: 20,
+                        border: "1px solid " + (h.done ? "#6BAF92" : "#E4E2DC"),
+                        background: h.done ? "#EEF7F3" : "#fff",
+                        color: h.done ? "#3A8A5F" : "#555",
+                        fontSize: 13, cursor: "pointer", fontWeight: h.done ? 600 : 400,
+                      }}>
+                        {h.done ? "✓ " : ""}{h.habit}{h.streak > 0 ? ` · ${h.streak}d` : ""}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {active === "Career" && (
+              <div>
+                <div style={{ fontSize: 11, color: "#888", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 12 }}>Milestones</div>
+                {data.career.map(c => (
+                  <div key={c.id} style={{ padding: "14px", background: "#fff", borderRadius: 8, border: "1px solid #E4E2DC", marginBottom: 8 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                      <span style={{
+                        fontSize: 10, padding: "2px 8px", borderRadius: 10,
+                        background: statusColor(c.status) + "22", color: statusColor(c.status),
+                        fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em"
+                      }}>{c.status}</span>
+                      <span style={{ fontWeight: 600, fontSize: 14 }}>{c.text}</span>
+                    </div>
+                    <div style={{ fontSize: 13, color: "#777" }}>{c.note}</div>
+                  </div>
+                ))}
+                <div style={{ marginTop: 20, padding: "14px", background: "#F0F4FF", borderRadius: 8, border: "1px solid #D0DAFA" }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: "#3A5BB5", marginBottom: 4 }}>📍 Upcoming</div>
+                  <div style={{ fontSize: 13, color: "#444", lineHeight: 1.8 }}>
+                    <div>· Onboarding: <strong>16 & 18 Jun</strong></div>
+                    <div>· Operations training: <strong>3 Jul</strong></div>
+                    <div>· IMS audit deadline: <strong>Sept 2026</strong></div>
+                    <div>· Daily commute: Puchong → RedQ, Sepang</div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {active === "Finances" && (
+              <div>
+                <div style={{ fontSize: 11, color: "#888", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 12 }}>Money Tracking (RM)</div>
+                {data.finances.map(f => (
+                  <div key={f.id} style={{ padding: "14px", background: "#fff", borderRadius: 8, border: "1px solid #E4E2DC", marginBottom: 8 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                      <span style={{ fontWeight: 600, fontSize: 14 }}>{f.label}</span>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <span style={{ fontSize: 11, color: "#999" }}>RM</span>
+                        <input type="number" value={f.amount} onChange={e => updateFinanceAmount(f.id, e.target.value)}
+                          style={{ width: 70, padding: "4px 8px", border: "1px solid #E4E2DC", borderRadius: 6, fontSize: 14, textAlign: "right", fontWeight: 600, background: "#FAFAF8" }}
+                        />
+                      </div>
+                    </div>
+                    <div style={{ fontSize: 12, color: "#999" }}>{f.note}</div>
+                  </div>
+                ))}
+                <div style={{ marginTop: 8, padding: "12px 14px", background: "#FDF8EE", borderRadius: 8, border: "1px solid #F0E4C0" }}>
+                  <div style={{ fontSize: 12, color: "#AA8020", fontWeight: 600 }}>💡 Side hustle tip</div>
+                  <div style={{ fontSize: 13, color: "#666", marginTop: 4 }}>Track each Funko flip: cost → sold price → profit. Use eBay sold listings to price, Carousell to sell locally.</div>
+                </div>
+              </div>
+            )}
+
+            {active === "Health" && (
+              <div>
+                <div style={{ fontSize: 11, color: "#888", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 12 }}>Habits & Streaks</div>
+                {data.health.map(h => (
+                  <div key={h.id} onClick={() => toggleHabit(h.id)} style={{
+                    display: "flex", justifyContent: "space-between", alignItems: "center",
+                    padding: "14px", background: "#fff", borderRadius: 8,
+                    border: "1px solid " + (h.done ? "#6BAF92" : "#E4E2DC"),
+                    marginBottom: 8, cursor: "pointer",
+                  }}>
+                    <div>
+                      <div style={{ fontWeight: 600, fontSize: 14 }}>{h.habit}</div>
+                      <div style={{ fontSize: 12, color: "#999", marginTop: 2 }}>{h.streak} day streak</div>
+                    </div>
+                    <div style={{
+                      width: 28, height: 28, borderRadius: "50%",
+                      background: h.done ? "#6BAF92" : "#F0EFEB",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      color: h.done ? "#fff" : "#ccc", fontSize: 14, fontWeight: 700,
+                    }}>{h.done ? "✓" : ""}</div>
+                  </div>
+                ))}
+                <div style={{ marginTop: 8, padding: "12px 14px", background: "#EEF7F3", borderRadius: 8, border: "1px solid #C2E0D2" }}>
+                  <div style={{ fontSize: 12, color: "#3A8A5F", fontWeight: 600 }}>🧴 Skin focus</div>
+                  <div style={{ fontSize: 13, color: "#555", marginTop: 4 }}>Combo/oily skin — blackheads & acne. Morning + night routine, RM50–100/mo budget.</div>
+                </div>
+              </div>
+            )}
+
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<Dashboard />);
+  </script>
+</body>
+</html>
